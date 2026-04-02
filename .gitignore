@@ -1,0 +1,54 @@
+# ======================
+# Python
+# ======================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.pyt
+
+# ======================
+# Environment
+# ======================
+.venv/
+env/
+ENV/
+*.env
+
+# ======================
+# IDE / Editor
+# ======================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ======================
+# MacOS / Windows temp files
+# ======================
+.DS_Store
+Thumbs.db
+
+# ======================
+# Dataset / output pesanti
+# ======================
+bottle/
+*.h5
+*.pt
+*.pth
+*.ckpt
+*.log
+*.csv
+*.npy
+*.npz
+results/
+checkpoints/
+#output/
+
+# ======================
+# Misc
+# ======================
+*.zip
+*.tar
+*.tar.gz
