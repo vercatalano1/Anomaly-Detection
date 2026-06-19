@@ -28,7 +28,7 @@ BATCH_SIZE = 16
 EPOCHS = 50 
 LR = 1e-3
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-OUTPUT_DIR = "./output_finale"
+OUTPUT_DIR = "./output_finale2"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # =========================
@@ -39,15 +39,67 @@ transform = transforms.Compose([
     transforms.ToTensor(),
 ])
 
-# Training: Carichiamo solo le immagini sane ('good')
-train_dataset = datasets.ImageFolder(root=os.path.join(DATASET_PATH, "train"), transform=transform)
-train_dataset.samples = [s for s in train_dataset.samples if "good" in s[0]]
-train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+# Caricamento delle immagini sane disponibili in train/good
+full_good_dataset = datasets.ImageFolder(
+    root=os.path.join(DATASET_PATH, "train"),
+    transform=transform
+)
 
-# Test: Carichiamo tutto (sani e difettosi) per la valutazione
-test_dataset = datasets.ImageFolder(root=os.path.join(DATASET_PATH, "test"), transform=transform)
-test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+# Manteniamo esplicitamente soltanto le immagini appartenenti alla classe "good"
+good_samples = [
+    sample
+    for sample in full_good_dataset.samples
+    if os.path.basename(os.path.dirname(sample[0])) == "good"
+]
 
+# Aggiornamento coerente degli attributi interni di ImageFolder
+full_good_dataset.samples = good_samples
+full_good_dataset.imgs = good_samples
+full_good_dataset.targets = [label for _, label in good_samples]
+
+# Divisione riproducibile: 80% training, 20% validation
+train_size = int(0.80 * len(full_good_dataset))
+val_size = len(full_good_dataset) - train_size
+
+split_generator = torch.Generator().manual_seed(SEED)
+
+train_dataset, val_dataset = random_split(
+    full_good_dataset,
+    [train_size, val_size],
+    generator=split_generator
+)
+
+# Il training loader viene usato per ottimizzare i pesi dell'autoencoder
+train_loader = DataLoader(
+    train_dataset,
+    batch_size=BATCH_SIZE,
+    shuffle=True
+)
+
+# Il validation loader viene usato esclusivamente per calibrare la soglia
+val_loader = DataLoader(
+    val_dataset,
+    batch_size=1,
+    shuffle=False
+)
+
+# Il test set resta completamente separato e viene usato solo alla fine
+test_dataset = datasets.ImageFolder(
+    root=os.path.join(DATASET_PATH, "test"),
+    transform=transform
+)
+
+test_loader = DataLoader(
+    test_dataset,
+    batch_size=1,
+    shuffle=False
+)
+
+print("\nSuddivisione dei dati sani:")
+print(f"Immagini sane totali disponibili: {len(full_good_dataset)}")
+print(f"Immagini usate per il training: {len(train_dataset)}")
+print(f"Immagini usate per la validation: {len(val_dataset)}")
+print(f"Immagini presenti nel test set: {len(test_dataset)}")
 # =========================
 # 3. ARCHITETTURA CNN-AUTOENCODER
 # =========================
@@ -163,27 +215,49 @@ for epoch in range(EPOCHS):
 model.eval()
 error_values = []
 
-circle_mask = create_circle_mask((IMAGE_SIZE, IMAGE_SIZE), radius_ratio=0.42)
-print("\nCalibrazione soglia sulle immagini di test sane...")
+circle_mask = create_circle_mask(
+    (IMAGE_SIZE, IMAGE_SIZE),
+    radius_ratio=0.42
+)
 
+print("\nCalibrazione soglia sul validation set sano...")
 
 with torch.no_grad():
-    for img, label in test_loader:
-        # Usiamo le immagini 'good' del test set per definire il limite della normalità
-        if test_dataset.classes[label.item()] == "good":
-            img_dev = img.to(DEVICE)
-            recon = model(img_dev)
-            diff = np.abs(img.squeeze().permute(1,2,0).numpy() - recon.cpu().squeeze().permute(1,2,0).numpy())
-            heatmap = np.mean(diff, axis=2)
-            heatmap_blur = cv2.GaussianBlur(heatmap, (5,5), 0)
-            # Applico la maschera circolare anche qui
-            heatmap_blur = heatmap_blur * circle_mask
-            # Uso il massimo come anomaly score
-            error_values.append(np.max(heatmap_blur))
+    for img, _ in val_loader:
+        img_device = img.to(DEVICE)
+        recon = model(img_device)
 
-# La soglia viene impostata al 95° percentile degli errori sui sani per evitare falsi positivi
+        img_np = img.squeeze().permute(1, 2, 0).numpy()
+        recon_np = recon.cpu().squeeze().permute(1, 2, 0).numpy()
+
+        # Errore di ricostruzione pixel per pixel
+        diff = np.abs(img_np - recon_np)
+        heatmap = np.mean(diff, axis=2)
+
+        # Riduzione del rumore
+        heatmap_blur = cv2.GaussianBlur(
+            heatmap,
+            (5, 5),
+            0
+        )
+
+        # Applicazione della regione di interesse
+        heatmap_blur = heatmap_blur * circle_mask
+
+        # Score image-level della singola immagine sana
+        anomaly_score = np.max(heatmap_blur)
+        error_values.append(anomaly_score)
+
+if len(error_values) == 0:
+    raise RuntimeError(
+        "Il validation set è vuoto: impossibile calcolare la soglia."
+    )
+
+# Il 95° percentile definisce il limite superiore della normalità
 threshold = np.percentile(error_values, 95)
-print(f"Soglia calcolata per lo scoring: {threshold:.4f}")
+
+print(f"Numero immagini usate per la calibrazione: {len(error_values)}")
+print(f"Soglia calcolata sul validation set: {threshold:.4f}")
 
 # =========================
 # 6. IINFERENZA + METRICHE + VISUALIZZAZIONE
