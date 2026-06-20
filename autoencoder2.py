@@ -356,8 +356,9 @@ with torch.no_grad():
             axes[2].imshow(heatmap_norm, cmap='jet')
             axes[2].set_title("Mappa Errore (Heatmap)")
 
-            axes[3].imshow(binary_mask, cmap='gray')
-            axes[3].set_title(f"{image_prediction}\nScore={anomaly_score:.3f}\nThr={threshold:.3f}")
+            axes[3].imshow(img_np)
+            axes[3].imshow(binary_mask, cmap='jet', alpha=0.5)
+            axes[3].set_title(f"{image_prediction}\nScore={anomaly_score:.3f}")
 
             axes[4].imshow(gt_mask, cmap='gray')
             axes[4].set_title("Ground Truth")
