@@ -95,26 +95,26 @@ Il sistema genera una visualizzazione composta da:
 * Loss: `MSELoss`
 * Training loss finale: `0.000279`
 * Validation loss minima: `0.000293`
-* Soglia finale: `0.0473`
+* Soglia finale: `0.0490`
 
 ### Metriche image-level
 
 * Accuracy: `0.8313`
-* Precision: `0.9455`
-* Recall: `0.8254`
-* F1-score: `0.8814`
-* Specificità: `0.8500`
+* Precision: `0.9623`
+* Recall: `0.8095`
+* F1-score: `0.8793`
+* Specificità: `0.9000`
 
 ### Metriche pixel-level
 
-* IoU media: `0.2181`
-* Precision media: `0.5914`
-* Recall media: `0.2609`
+* IoU media: `0.2104`
+* Precision media: `0.5956`
+* Recall media: `0.2515`
 
 ### Risultati per categoria
 
 * `broken_large`: 20 anomalie rilevate su 20;
-* `broken_small`: 20 anomalie rilevate su 22;
+* `broken_small`: 19 anomalie rilevate su 22;
 * `contamination`: 12 anomalie rilevate su 21.
 
 Il sistema risulta particolarmente efficace nel riconoscimento delle rotture strutturali, mentre le contaminazioni rappresentano la categoria più complessa.
