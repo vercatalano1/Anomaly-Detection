@@ -6,9 +6,7 @@ L'obiettivo del progetto è sviluppare un sistema in grado di riconoscere **dife
 
 Invece di utilizzare un approccio supervisionato, basato su esempi di prodotti sani e difettosi, viene adottato un approccio **unsupervised** basato sulla ricostruzione dell'immagine:
 
-[
-X -> X'
-]
+$$X \rightarrow \hat{X}$$
 
 Il modello viene addestrato esclusivamente su immagini di bottiglie sane. In questo modo impara a rappresentare la struttura normale dell'oggetto.
 
